@@ -89,9 +89,9 @@ def usage():
   Remember that the -l option requires you to add the -l to any lib as it is shown in the example. However it's the oposite for the -L and -I options which both add the -L and the -I before every argument. Therefore consider using a single -l option and multiple -I and -L options.\n\
 \n\
 Running without arguments is equivalent to this:\n\
-  "+sys.argv[0]+" -D -s src -o obj -b bin -c \"xcrun clang++\" -O \"-Wall -Wextra -O2 -std=c++11 -stdlib=libc++\" -Isrc -L/usr/local/lib -e cpp -E main -M Makefile -N \"-std=c++11 -stlib=libc++\"\n\
+  "+sys.argv[0]+" -D -s "+src_dir+" -o "+obj_dir+" -b "+bin_dir+" -c \""+cxx+"\" -O \""+default_options+"\" "+default_include+" "+default_link+" -e "+file_ext+" -M "+makefile+" -N \""+default_link_opt+"\"\n\
 \n\
-GitHub repo: https://github.com/posva/configure-script")
+GitHub repo: https://github.com/posva/configure.py")
 
 # Remove blanks at the begining
 def remove_blank(s):
@@ -296,7 +296,7 @@ def makefile_header():
     f = open(makefile, "w", encoding="utf-8")
     f.write("# Makefile generated with configure script by Eduardo San Martin Morote \n\
 # aka Posva. http://posva.net\n\
-# GitHub repo: https://github.com/posva/configure-script\n\
+# GitHub repo: https://github.com/posva/configure.py\n\
 # Please report any bug to i@posva.net\n\
 \n\
 CXX := "+cxx+"\n\
@@ -416,22 +416,27 @@ for f in files:
 
 for f in exec_c_files:
     info_msg("Checking dependencies for "+f+"...")
-    l = find_dependencies(f)
-    good_msg("OK")
-    if verbose:
-        warning_msg("Dependencies:", list2str(l))
-    o = obj_dir+"/"+extre.sub(".o", os.path.basename(f))
-    if cmake_style:
-        now_file = now_file+1
-        perc = 100 * now_file / total_files
-        rule = o + ": " + f + " " + list2str(l) + """
-	@echo -e \"["""+str(int(perc))+"""%] \e[32mBuilding $@\e[0m\" && $(CXX) $(OPT) $< -c -o $@
-"""
-        m.write(rule)
+    if not os.path.isfile(f):
+        error_msg("OK")
+        error_msg("File %s doesn't exists"%f)
+        exit(1)
     else:
-        rule = o + ": " + f + " " + list2str(l) + """
-	$(CXX) $(OPT) $< -c -o $@
-"""
+        l = find_dependencies(f)
+        good_msg("OK")
+        if verbose:
+            warning_msg("Dependencies:", list2str(l))
+        o = obj_dir+"/"+extre.sub(".o", os.path.basename(f))
+        if cmake_style:
+            now_file = now_file+1
+            perc = 100 * now_file / total_files
+            rule = o + ": " + f + " " + list2str(l) + """
+            @echo -e \"["""+str(int(perc))+"""%] \e[32mBuilding $@\e[0m\" && $(CXX) $(OPT) $< -c -o $@
+    """
+            m.write(rule)
+        else:
+            rule = o + ": " + f + " " + list2str(l) + """
+            $(CXX) $(OPT) $< -c -o $@
+    """
         m.write(rule)
 
 
