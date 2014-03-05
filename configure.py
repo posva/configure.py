@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import getopt, sys, time, os, re
+import getopt, sys, time, os, re, tempfile
 
 start_time = time.time()
 
@@ -210,6 +210,27 @@ def find_dirs(top = '.'):
             else:
                 i += 1
     return l
+
+# Check if a file has \r in its content
+def is_dos(filename):
+    f = open(filename, "rb")
+    for l in f:
+        if b"\r" in l:
+            return True
+    return False
+
+# convert a file to unix format
+def convert_unix(filename):
+    f = open(filename, "U")
+    t = tempfile.TemporaryFile()
+
+    for l in f:
+        t.write(l)
+
+    f.close()
+    t.close()
+
+    os.move(t.name, f.name)
 
 # This is the same but for files
 # top: where to start the search
@@ -435,7 +456,7 @@ for f in exec_c_files:
             m.write(rule)
         else:
             rule = o + ": " + f + " " + list2str(l) + """
-            $(CXX) $(OPT) $< -c -o $@
+	$(CXX) $(OPT) $< -c -o $@
     """
         m.write(rule)
 

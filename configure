@@ -8,18 +8,19 @@
 
 CONF=~/configure.py/configure.py
 if [[ ! -x ${CONF} ]]; then
-  git clone https://github.com/posva/configure-script.git ~/configure.py
+  git clone https://github.com/posva/configure.py.git ~/configure.py
 fi
 
 #Common options between different OS
 OPT="-Wall -Wextra -O2"
 EXT=c
 MAK="Makefile"
+EXEC=../sh2d/exc/catimg.c
 
 if [ `uname` = "Darwin" ]; then
-  ${CONF} -D -s src -o obj -b bin -c "xcrun clang" -O "$OPT" -Isrc -L/usr/local/lib -e $EXT -E main -M $MAK -l "-lm" $@
+  ${CONF} -D -s src -o obj -b bin -c "xcrun clang" -O "$OPT" -Isrc -L/usr/local/lib -e $EXT -E ${EXEC} -M $MAK -l "-lm" $@
 elif [ `uname` = "Linux" ]; then
-  ${CONF} -D -s src -o obj -b bin -c "clang" -O "$OPT" -Isrc -L/usr/local/lib -e $EXT -E main -M $MAK -l "-lm" $@
+  ${CONF} -D -s src -o obj -b bin -c "clang" -O "$OPT" -Isrc -L/usr/local/lib -e $EXT -E ${EXEC} -M $MAK -l "-lm" $@
 else
-  ${CONF} -D -s src -o obj -b bin -c "mingw32-gcc" -O "$OPT" -Isrc -e $EXT -E main -M $MAK -l "-lm" $@
+  ${CONF} -D -s src -o obj -b bin -c "mingw32-gcc" -O "$OPT" -Isrc -e $EXT -E ${EXEC} -M $MAK -l "-lm" $@
 fi
