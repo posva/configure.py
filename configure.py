@@ -104,14 +104,10 @@ def good_msg(s):
     print(c_green+s+c_clean)
 def error_msg(s):
     print(c_red+s+c_clean)
-def warning_msg(*args, **kwargs):
-    print(c_yellow, end='')
-    __builtins__.print(*args, **kwargs)
-    print(c_clean, end='')
-def info_msg(*args):
-    print(c_blue, end='')
-    __builtins__.print(*args, end = '')
-    print(c_clean, end='')
+def warning_msg(s):
+    print(c_yellow+s+c_clean)
+def info_msg(s):
+    print(c_blue+s+c_clean, end = '')
 
 
 compiler_changed = False
