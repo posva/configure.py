@@ -285,9 +285,13 @@ def find_dependencies(fi):
         m = inc.match(l)
         if m:
             ff = check_file(m.groups()[0])
-            if not ff in deps[fi]:
+            if not ff == "" and not ff in deps[fi]:
                 deps[fi].add(ff)
                 deps[fi].update(find_dependencies(ff))
+            else:
+                error_msg("KO")
+                error_msg("%s, line %d: %s doesn't exist!"%(f.name, i, m.groups()[0]))
+                exit(1)
             #print(ff+"->", end='')
             #print(deps[fi])
     f.close()
