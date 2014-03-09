@@ -278,8 +278,10 @@ def find_dependencies(fi):
     else:
         deps[fi] = set() # Empty set
 
-    f = open(fi)
+    f = open(fi, "U")
+    i = 0
     for l in f:
+        i += 1
         m = inc.match(l)
         if m:
             ff = check_file(m.groups()[0])
