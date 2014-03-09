@@ -275,21 +275,25 @@ def find_dependencies(fi):
         deps[fi] = set() # Empty set
 
     f = open(fi, "U")
-    i = 0
-    for l in f:
-        i += 1
-        m = inc.match(l)
-        if m:
-            ff = check_file(m.groups()[0])
-            if not ff == "" and not ff in deps[fi]:
-                deps[fi].add(ff)
-                deps[fi].update(find_dependencies(ff))
-            else:
-                error_msg("KO")
-                error_msg("%s, line %d: %s doesn't exist!"%(f.name, i, m.groups()[0]))
-                exit(1)
-            #print(ff+"->", end='')
-            #print(deps[fi])
+    try:
+        i = 1
+        for l in f:
+            m = inc.match(l)
+            if m:
+                ff = check_file(m.groups()[0])
+                if not ff == "" and not ff in deps[fi]:
+                    deps[fi].add(ff)
+                    deps[fi].update(find_dependencies(ff))
+                else:
+                    error_msg("KO")
+                    error_msg("%s, line %d: %s doesn't exist!"%(f.name, i, m.groups()[0]))
+                    exit(1)
+            i += 1
+    except UnicodeDecodeError:
+        error_msg("KO")
+        error_msg("There was an error decoding file %s at line %d..."%(f.name, i))
+        exit(1)
+
     f.close()
     return deps[fi]
 
