@@ -385,7 +385,7 @@ obj_files = [srcobj.sub(obj_dir, extre.sub(".o", i)) for i in tmp]
 
 # we generate if needed the executables names
 if verbose:
-    warning_msg(len(exec_file), " executables rules will be generated. ",len(exec_name), " names were given for these.", " Names will be generated automatically." if not len(exec_file) == len(exec_name) else "")
+    warning_msg("%d executable rules will be generated. %d names were given for these.%s"%(len(exec_file), len(exec_name), " Names will be generated automatically." if not len(exec_file) == len(exec_name) else ""))
 gen_exec_names()
 
 # Start the generation
@@ -422,11 +422,11 @@ for f in exec_file:
 total_files = len(files)+len(exec_c_files)
 
 for f in files:
-    info_msg("Checking dependencies for "+f+"...")
+    info_msg("Checking dependencies for %s..."%f)
     l = find_dependencies(f)
     good_msg("OK")
     if verbose:
-        warning_msg("Dependencies:", list2str(l))
+        warning_msg("Dependencies: %s"%list2str(l))
     o = srcobj.sub(obj_dir, extre.sub(".o", f))
     if cmake_style:
         now_file = now_file+1
@@ -442,7 +442,7 @@ for f in files:
         m.write(rule)
 
 for f in exec_c_files:
-    info_msg("Checking dependencies for "+f+"...")
+    info_msg("Checking dependencies for %s..."%f)
     if not os.path.isfile(f):
         error_msg("OK")
         error_msg("File %s doesn't exists"%f)
@@ -451,7 +451,7 @@ for f in exec_c_files:
         l = find_dependencies(f)
         good_msg("OK")
         if verbose:
-            warning_msg("Dependencies:", list2str(l))
+            warning_msg("Dependencies: %s"%list2str(l))
         o = obj_dir+"/"+extre.sub(".o", os.path.basename(f))
         if cmake_style:
             now_file = now_file+1
