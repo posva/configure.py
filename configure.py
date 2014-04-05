@@ -250,6 +250,7 @@ def check_file(fi):
     else:
         dirs = include.split("-I")
         dirs[0] = '.' # instead of empty
+        fi = os.path.basename(fi)
         for d in dirs:
             i = 0
             l = os.listdir(d)
@@ -280,11 +281,13 @@ def find_dependencies(fi):
         for l in f:
             m = inc.match(l)
             if m:
-                ff = check_file(m.groups()[0])
+                tmp = m.groups()[0].replace("\\","/") # win style include (so ugly)
+                ff = check_file(tmp)
+                #warning_msg("%s: %s -> %s"%(l, tmp, ff))
                 if not ff == "" and not ff in deps[fi]:
                     deps[fi].add(ff)
                     deps[fi].update(find_dependencies(ff))
-                else:
+                elif ff == "":
                     error_msg("KO")
                     error_msg("%s, line %d: %s doesn't exist!"%(f.name, i, m.groups()[0]))
                     exit(1)
@@ -300,13 +303,23 @@ def find_dependencies(fi):
 # TODO autofind main methods.
 # When no -E is given we try to find it
 def find_exec():
-    return ""
+    global exec_file
+    main = re.compile("^\s*(int|void)\s+main\([^)]*\)")
+    for fi in files:
+        f = open(fi, "U")
+        for l in f:
+            if main.match(l):
+                exec_file.append(f.name)
+                break
+        f.close()
 
 # fill the list of exec_name using the basename
 # if both lists have same length then nothing will happen
 def gen_exec_names():
+    global exec_name
     if not len(exec_name) == len(exec_file):
-        exec_name.clear()
+        exec_name = [] # python2 compatible
+        #exec_name.clear()
         for e in exec_file:
             exec_name.append(extre.sub("", os.path.basename(e)))
 
@@ -382,6 +395,19 @@ extre = re.compile("\."+file_ext+"$")
 # We need to remove the executables from the obj list if they're in it
 tmp = [i for i in files if i not in exec_file]
 obj_files = [srcobj.sub(obj_dir, extre.sub(".o", i)) for i in tmp]
+
+if verbose:
+    warning_msg("%d files must be checked"%len(files))
+if len(exec_file) == 0:
+    info_msg("No executables files were given, finding them...")
+    find_exec()
+    if len(exec_file) == 0:
+        error_msg("KO")
+        error_msg("There is no main function!")
+        exit(1)
+    good_msg("OK")
+    if verbose:
+        warning_msg("Executables found: %s"%list2str(exec_file))
 
 # we generate if needed the executables names
 if verbose:
