@@ -300,7 +300,6 @@ def find_dependencies(fi):
     f.close()
     return deps[fi]
 
-# TODO autofind main methods.
 # When no -E is given we try to find it
 def find_exec():
     global exec_file
@@ -315,6 +314,7 @@ def find_exec():
 
 # fill the list of exec_name using the basename
 # if both lists have same length then nothing will happen
+# TODO only generate the names you need
 def gen_exec_names():
     global exec_name
     if not len(exec_name) == len(exec_file):
@@ -348,7 +348,7 @@ SHELL := "+os.getenv("SHELL", "/bin/bash")+"\n\
 ")
 
     f.write("\n\
-all : "+bin_dir+"/"+exec_name[0]+" "+list2str(obj_files)+"\n\n")
+all : "+list2str([bin_dir+"/"+i for i in exec_name])+" "+list2str(obj_files)+"\n\n")
 
     clean_list = [bin_dir+"/"+e for e in exec_name]
 
@@ -356,7 +356,7 @@ all : "+bin_dir+"/"+exec_name[0]+" "+list2str(obj_files)+"\n\n")
     while i < len(exec_file):
         if cmake_style:
           f.write(bin_dir+"/"+exec_name[i]+" : "+obj_dir+"/"+extre.sub(".o", os.path.basename(exec_file[i]))+" "+list2str(obj_files)+"\n\
-	@echo -e \"\e[31;1mLinking $(EXEC)\e[0m\" && $(LINKER) $(LINK_OPT) $^ -o \"$@\" $(LIBS)\n\n")
+	@echo -e \"\e[31;1mLinking "+exec_name[i]+"\e[0m\" && $(LINKER) $(LINK_OPT) $^ -o \"$@\" $(LIBS)\n\n")
         else:
           f.write(bin_dir+"/"+exec_name[i]+" : "+obj_dir+"/"+extre.sub(".o", os.path.basename(exec_file[i]))+" "+list2str(obj_files)+"\n\
 	$(LINKER) $(LINK_OPT) $^ -o \"$@\" $(LIBS)\n\n")
@@ -390,11 +390,6 @@ folders.sort() # we sort so we can create correctly
 
 # List files that are going t be checked
 files = find_files(src_dir, file_ext)
-extre = re.compile("\."+file_ext+"$")
-# we need a list of all the .o files
-# We need to remove the executables from the obj list if they're in it
-tmp = [i for i in files if i not in exec_file]
-obj_files = [srcobj.sub(obj_dir, extre.sub(".o", i)) for i in tmp]
 
 if verbose:
     warning_msg("%d files must be checked"%len(files))
@@ -409,10 +404,19 @@ if len(exec_file) == 0:
     if verbose:
         warning_msg("Executables found: %s"%list2str(exec_file))
 
+extre = re.compile("\."+file_ext+"$")
+# we need a list of all the .o files
+# We need to remove the executables from the obj list if they're in it
+tmp = [i for i in files if i not in exec_file]
+obj_files = [srcobj.sub(obj_dir, extre.sub(".o", i)) for i in tmp]
+
 # we generate if needed the executables names
 if verbose:
     warning_msg("%d executable rules will be generated. %d names were given for these.%s"%(len(exec_file), len(exec_name), " Names will be generated automatically." if not len(exec_file) == len(exec_name) else ""))
-gen_exec_names()
+
+# Generate names if needed
+if not len(exec_file) == len(exec_name):
+    gen_exec_names()
 
 # Start the generation
 info_msg("Creating some rules for Makefile...")
@@ -483,15 +487,14 @@ for f in exec_c_files:
             now_file = now_file+1
             perc = 100 * now_file / total_files
             rule = o + ": " + f + " " + list2str(l) + """
-            @echo -e \"["""+str(int(perc))+"""%] \e[32mBuilding $@\e[0m\" && $(CXX) $(OPT) $< -c -o $@
-    """
+	@echo -e \"["""+str(int(perc))+"""%] \e[32mBuilding $@\e[0m\" && $(CXX) $(OPT) $< -c -o $@
+"""
             m.write(rule)
         else:
             rule = o + ": " + f + " " + list2str(l) + """
 	$(CXX) $(OPT) $< -c -o $@
-    """
-        m.write(rule)
-
+"""
+            m.write(rule)
 
 m.close()
 
