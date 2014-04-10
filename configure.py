@@ -510,7 +510,12 @@ for f in exec_file:
 
 total_files = len(files)+len(exec_c_files)
 
-for f in files:
+# write a rule for a certain file
+# it will find every dependency too
+# f is the name of the file
+# m is the makefile file object
+def write_rule(f, m):
+    global deps, obj_dir, extre, verbose, cmake_style, now_file, total_files
     if f in deps:
         info_msg("Checking for modifications on %s..."%f)
     else:
@@ -533,31 +538,10 @@ for f in files:
 """
         m.write(rule)
 
+for f in files:
+    write_rule(f, m)
 for f in exec_c_files:
-    info_msg("Checking dependencies for %s..."%f)
-    if not os.path.isfile(f):
-        error_msg("OK")
-        error_msg("File %s doesn't exists"%f)
-        save_cache()
-        exit(1)
-    else:
-        l = find_dependencies(f)
-        good_msg("OK")
-        if verbose:
-            warning_msg("Dependencies: %s"%list2str(l))
-        o = obj_dir+"/"+extre.sub(".o", os.path.basename(f))
-        if cmake_style:
-            now_file = now_file+1
-            perc = 100 * now_file / total_files
-            rule = o + ": " + f + " " + list2str(l) + """
-	@echo -e \"["""+str(int(perc))+"""%] \e[32mBuilding $@\e[0m\" && $(CXX) $(OPT) $< -c -o $@
-"""
-            m.write(rule)
-        else:
-            rule = o + ": " + f + " " + list2str(l) + """
-	$(CXX) $(OPT) $< -c -o $@
-"""
-            m.write(rule)
+    write_rule(f, m)
 
 m.close()
 

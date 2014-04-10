@@ -18,7 +18,7 @@ You should have a `configure` file as in the repo that pass the right options to
 
 - [x] Cache file
 - [x] Use dates instead of hash
-- [ ] factorize some coe
+- [x] factorize some coe
 
 #Knows Issues
 
