@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
-import getopt, sys, time, os, re, tempfile
+import getopt, sys, time, os, re, tempfile, json
+from zlib import adler32
 
 start_time = time.time()
 
@@ -264,16 +265,82 @@ def check_file(fi):
                 i = i+1
     return ""
 
+# save the cache file
+# this function should be called before exiting if the deps have changed
+def save_cache():
+    global cache_file, deps
+    d = deps
+    for k, v in d.items():
+        d[k]['deps'] = list(v['deps'])
+    with open(cache_file, 'w') as jf:
+        if verbose:
+            json.dump(d, jf, indent=2)
+        else:
+            json.dump(d, jf)
+        jf.close()
+        if verbose:
+            warning_msg("Cache file saved to %s"%cache_file)
+
 # Find the dependencies of a file
 # Memoization achieved with the dictionary deps
 inc = re.compile("^\s*#include\s*[<\"](.*?)[<\"]")
 deps = {} # dictionary with dependencies
+cache_file = "configure.cache"
+if os.path.isfile(cache_file):
+    if verbose:
+        warning_msg("A cache file exist at %s"%cache_file)
+    with open(cache_file) as jf:
+        try:
+            deps = json.load(jf)
+        except ValueError:
+            error_msg("The cache file is not JSON!")
+        jf.close()
+    info_msg("Checking if cache file is valid...")
+    ok = True
+    for k,v in deps.items():
+        if not ('hash' in v and 'deps' in v) or not type(v) == dict:
+            ok = False
+    if ok:
+        good_msg("OK")
+    else:
+        error_msg("KO")
+        deps = {}
+        warning_msg("Cache file is invalid, the dependencies must be calculated.")
+
+# fast hashing file using adler32
+def hash_file(fname):
+    BLOCKSIZE=256*1024*1024
+    asum = 1
+    with open(fname) as f:
+        while True:
+            data = f.read(BLOCKSIZE)
+            if not data:
+                break
+            asum = adler32(bytes(data, 'UTF-8'), asum)
+            if asum < 0:
+                asum += 2**32
+    return asum
+
+# each entry have hash of the file itself and a list of dependencies in order to
+# use it as a cache and then only find dependencies of files that have changed.
+# Using a hash turns out to be fastes than getting the date with
+# os.path.getmdate() BUT I only tested doing a loop with the same file
+# the model is: file-name: {'hash': 'hash string', 'deps': ["file1", "file2"]}
+# deps is filled with that kind of entry
 # fi: file to check. must exist
 def find_dependencies(fi):
+    global deps
     if fi in deps:
-        return deps[fi]
-    else:
-        deps[fi] = set() # Empty set
+        ha = hash_file(fi)
+        if ha == deps[fi]['hash']:
+            return deps[fi]['deps']
+        elif verbose:
+            warning_msg("The file %s has changed (%d != %d), checking the dependencies again."%(fi, ha, deps[fi]['hash']))
+
+    dep = {
+                'hash' : hash_file(fi),
+                'deps' : set()
+               }
 
     f = open(fi, "U")
     try:
@@ -284,21 +351,24 @@ def find_dependencies(fi):
                 tmp = m.groups()[0].replace("\\","/") # win style include (so ugly)
                 ff = check_file(tmp)
                 #warning_msg("%s: %s -> %s"%(l, tmp, ff))
-                if not ff == "" and not ff in deps[fi]:
-                    deps[fi].add(ff)
-                    deps[fi].update(find_dependencies(ff))
+                if not ff == "" and not ff in dep:
+                    dep['deps'].add(ff)
+                    dep['deps'].update(find_dependencies(ff))
                 elif ff == "":
                     error_msg("KO")
                     error_msg("%s, line %d: %s doesn't exist!"%(f.name, i, m.groups()[0]))
+                    save_cache()
                     exit(1)
             i += 1
     except UnicodeDecodeError:
         error_msg("KO")
         error_msg("There was an error decoding file %s at line %d..."%(f.name, i))
+        save_cache()
         exit(1)
 
     f.close()
-    return deps[fi]
+    deps[fi] = dep
+    return deps[fi]['deps']
 
 # When no -E is given we try to find it
 def find_exec():
@@ -452,7 +522,10 @@ for f in exec_file:
 total_files = len(files)+len(exec_c_files)
 
 for f in files:
-    info_msg("Checking dependencies for %s..."%f)
+    if f in deps:
+        info_msg("Checking for modifications on %s..."%f)
+    else:
+        info_msg("Checking dependencies for %s..."%f)
     l = find_dependencies(f)
     good_msg("OK")
     if verbose:
@@ -476,6 +549,7 @@ for f in exec_c_files:
     if not os.path.isfile(f):
         error_msg("OK")
         error_msg("File %s doesn't exists"%f)
+        save_cache()
         exit(1)
     else:
         l = find_dependencies(f)
@@ -498,6 +572,8 @@ for f in exec_c_files:
 
 m.close()
 
+# save the cache
+save_cache()
 
 elapsed = (time.time() - start_time)
 warning_msg("Makefile(%s) generated in %.5f seconds."%(makefile, elapsed))
