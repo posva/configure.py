@@ -16,12 +16,13 @@ You should have a `configure` file as in the repo that pass the right options to
 
 #TODO List
 [x] Cache file
-[ ] Use dates instead of hash
+[x] Use dates instead of hash
+[ ] factorize some coe
 
 #Knows Issues
 
 * The script cannot detect multi lines comments or process any #ifdef. Therefore any of these includes will be treated as if they were valid and will try to find them.
-* Recursive include: if you include one file inside itself you'll have a RuntimeError. This may happen if the include is used as a comment
+* ~~Recursive include: if you include one file inside itself you'll have a RuntimeError. This may happen if the include is used as a comment~~
 
 #Help
 

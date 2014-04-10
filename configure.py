@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 
 import getopt, sys, time, os, re, tempfile, json
-from zlib import adler32
 
 start_time = time.time()
 
@@ -19,7 +18,7 @@ bin_dir = "bin"
 
 # Default options passed to the compiler. You can pass more options or edit
 # these as much as you want
-# Use -D to supress these options (by these I mean all of the default_ variables"
+# Use -D to suppress these options (by these I mean all of the default_ variables"
 # Add new options with -O "-Wall -Os"
 default_options = "-Wall -Wextra -O2 -std=c++11 -stdlib=libc++"
 options = ""
@@ -268,8 +267,11 @@ def check_file(fi):
 # save the cache file
 # this function should be called before exiting if the deps have changed
 def save_cache():
-    global cache_file, deps
+    global cache_file, deps, unfinished_jobs
     d = deps
+    # we remove the dependencies that have not been fully calculated
+    for f in unfinished_jobs:
+        del d[f]
     for k, v in d.items():
         d[k]['deps'] = list(v['deps'])
     with open(cache_file, 'w') as jf:
@@ -285,6 +287,7 @@ def save_cache():
 # Memoization achieved with the dictionary deps
 inc = re.compile("^\s*#include\s*[<\"](.*?)[<\"]")
 deps = {} # dictionary with dependencies
+unfinished_jobs = set() # we store the dependecies that have not been fully calculated
 cache_file = "configure.cache"
 if os.path.isfile(cache_file):
     if verbose:
@@ -298,7 +301,7 @@ if os.path.isfile(cache_file):
     info_msg("Checking if cache file is valid...")
     ok = True
     for k,v in deps.items():
-        if not ('hash' in v and 'deps' in v) or not type(v) == dict:
+        if not ('date' in v and 'deps' in v) or not type(v) == dict:
             ok = False
     if ok:
         good_msg("OK")
@@ -307,40 +310,26 @@ if os.path.isfile(cache_file):
         deps = {}
         warning_msg("Cache file is invalid, the dependencies must be calculated.")
 
-# fast hashing file using adler32
-def hash_file(fname):
-    BLOCKSIZE=256*1024*1024
-    asum = 1
-    with open(fname) as f:
-        while True:
-            data = f.read(BLOCKSIZE)
-            if not data:
-                break
-            asum = adler32(bytes(data, 'UTF-8'), asum)
-            if asum < 0:
-                asum += 2**32
-    return asum
-
-# each entry have hash of the file itself and a list of dependencies in order to
+# each entry have date of the file itself and a list of dependencies in order to
 # use it as a cache and then only find dependencies of files that have changed.
-# Using a hash turns out to be fastes than getting the date with
-# os.path.getmdate() BUT I only tested doing a loop with the same file
-# the model is: file-name: {'hash': 'hash string', 'deps': ["file1", "file2"]}
+# the model is: file-name: {'date': 'date real', 'deps': ["file1", "file2"]}
 # deps is filled with that kind of entry
 # fi: file to check. must exist
 def find_dependencies(fi):
-    global deps
+    global deps, unfinished_jobs
     if fi in deps:
-        ha = hash_file(fi)
-        if ha == deps[fi]['hash']:
+        da = os.path.getmtime(fi)
+        if da == deps[fi]['date']:
             return deps[fi]['deps']
         elif verbose:
-            warning_msg("The file %s has changed (%d != %d), checking the dependencies again."%(fi, ha, deps[fi]['hash']))
+            warning_msg("The file %s has changed, checking the dependencies again."%(fi))
 
-    dep = {
-                'hash' : hash_file(fi),
+    deps[fi] = {
+                'date' : os.path.getmtime(fi),
                 'deps' : set()
                }
+
+    unfinished_jobs.add(fi)
 
     f = open(fi, "U")
     try:
@@ -350,10 +339,10 @@ def find_dependencies(fi):
             if m:
                 tmp = m.groups()[0].replace("\\","/") # win style include (so ugly)
                 ff = check_file(tmp)
-                #warning_msg("%s: %s -> %s"%(l, tmp, ff))
-                if not ff == "" and not ff in dep:
-                    dep['deps'].add(ff)
-                    dep['deps'].update(find_dependencies(ff))
+                #warning_msg("in %s found %s: %s -> %s"%(f.name, l, tmp, ff))
+                if not ff == "" and not ff in deps[fi]:
+                    deps[fi]['deps'].add(ff)
+                    deps[fi]['deps'].update(find_dependencies(ff))
                 elif ff == "":
                     error_msg("KO")
                     error_msg("%s, line %d: %s doesn't exist!"%(f.name, i, m.groups()[0]))
@@ -367,7 +356,7 @@ def find_dependencies(fi):
         exit(1)
 
     f.close()
-    deps[fi] = dep
+    unfinished_jobs.remove(fi)
     return deps[fi]['deps']
 
 # When no -E is given we try to find it
