@@ -529,7 +529,8 @@ def write_rule(f, m):
         now_file = now_file+1
         perc = 100 * now_file / total_files
         rule = o + ": " + f + " " + list2str(l) + """
-	@echo -e \"["""+str(int(perc))+"""%] \e[32mBuilding $@\e[0m\" && $(CXX) $(OPT) $< -c -o $@
+	@rm -f $@
+	@echo -e \"[$$(expr 100 \\* `find obj -name '*.o' | wc -l` / `find src -name '*."""+file_ext+"""' | wc -l`)%] \e[32mBuilding $@\e[0m\" && $(CXX) $(OPT) $< -c -o $@
 """
         m.write(rule)
     else:
